@@ -1,0 +1,99 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Runtime.Serialization.Json;
+using System.ServiceModel;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Xrm.sdk;
+using Microsoft.Xrm.Tooling.Connector;
+
+namespace AzureFunction_Demo_D365_Arunabha
+{
+    [FunctionName("Function1")]
+    public static async Task<HttpResponseMessage> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequest)
+   {
+	log.Info("Http trigger function processed Request");
+	string jsoncontent = await req.Content.ReadAsStringAsync();
+	var conn = new CrmServiceClient($@"AuthType=ClientSecret;url=https://xyz.crm.dynamics.com;ClientId=guid-id")
+	IOrganizationService orgservice = conn.organizationWebProxyClient != null ? conn.organizationWebProxyClient :(IOrganizationService);
+
+	log.info("After Service");
+
+	RemoteExecutionContext context = GetD365Context(log.JsonContent);
+	log.Info("After Conext")
+
+	ProcessContext(log, context, orgService);
+	log.Info("After ProcessContext");
+
+	return req.CreateResponse(HttpStatusCode.OK);
+   }
+
+	internal static void  ProcessContext(TraceWritter log, RemoteExecutionContext context, IOrganizationService service)
+	{
+		Entity entcont = (Entity)context.InputParameters["Target"];
+		var enitityName = entCont.LogicalName;
+		switch (entityName.ToLower())
+		{
+			  case "contact":
+						PostContactCreation(log, context, service);
+						break;
+					default:
+						break;
+		}
+
+	}
+
+	private static void PostContactCreation(TraceWriter log, RemoteExecutionContext context, IOrganizationService service)
+   {
+		log.Info(PostContact Create Started);
+		try
+		{
+			var ent = (Entity)context.InputParameters["Target"];
+			if(ent.Attributes.Contains("firstname") && ent.Attributes.Contains("description"))
+			{
+				if(entity.getAttributeValue<string>("description"))
+				try
+				{
+					log.Info("info :" + ent.getAttributeValue<string>("firstname"));
+					log.Info("info :" + ent.getAttributeValue<string>("lastname"));
+					log.Info("info :" + ent.getAttributeValue<string>("description"));
+				}
+				catch(Exception ex)
+				{
+					log.Info("error :" + ex.Message);
+				}
+			}
+		}
+		else
+				log.Info("No Description in the Current Context");
+
+   }	
+
+   catch(FaultException<IOrganizationServiceFault> ex)
+	{
+		log.Info("An error occured in Post Contact create function:{0}", ex.Message);
+	}
+	catch(Exception ex)
+	{
+		log.Info("Post Contact Create Error : {0}", ex.Message);
+	}
+	internal static RemoteExecutionContext GetD365Context(TraceWriter log, string jsonContent)
+	{
+		log.Info("D365 Connect");
+		RemoteExecutionContext context = null;
+		using(var ms = new MemoryStream(Encoding.Unicode.GetBytes(jsonContent)))
+		{
+			DataContractJsonSerializer jsonSerializer = new DataContractJsonSerializer(typeof(RemoteExecutionContext));
+			context = (RemoteExecutionContext)jsonSerializer.ReadObject(ms);
+		}
+		log.Info("connected");
+		return context;
+	}
+}
+
